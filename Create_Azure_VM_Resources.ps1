@@ -1,5 +1,5 @@
 # Create a resource group
-$ResourceLocation = 'westus'
+$ResourceLocation = 'southeastasia'
 $ResourceGroup = New-AzureRmResourceGroup -Name ResourceGroup2 -Location $ResourceLocation -Verbose
     #Get-AzureRmResourceGroup -Verbose
     #Get-AzureRmLocation | ?{$_.location -like "*India*"} 
@@ -56,7 +56,32 @@ $vmConfig = New-AzureRmVMConfig -VMName WinServer2016 -VMSize Standard_DS2 | `
 #                   @{n='VMSize';e={$_.HardwareProfile.VMSize}} , `
 #                   @{n='OSProfile';e={$_.OSProfile |select Admin*}} , `
 #                   
-                   
 
 New-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName `
               -Location $ResourceLocation -VM $vmConfig -Verbose
+
+
+
+Set-Item -Path WSMan:\localhost\Client\TrustedHosts –Value “52.187.132.102” -Confirm:$false              
+Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP-PUBLIC' -RemoteAddress 'Any'
+gci C:\Data\Powershell\Certs\Win2016.cer | Import-Certificate -CertStoreLocation Cert:\LocalMachine\Root -Verbose
+
+$PSSessionOption = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
+Enter-PSSession -ConnectionUri https://52.187.132.102:5986 -Credential $creds -Authentication Negotiate -SessionOption $PSSessionOption
+
+# how to check VM endpoints/ports?
+
+
+
+Get-AzureRmPublicIpAddress -Name WinServer2016
+Get-AzureRmNetworkInterface -ResourceGroupName ResourceGroup2 | `
+ForEach{ 
+    $Interface = $_.Name; $IPs = $_ | Get-AzureRmNetworkInterfaceIpConfig | Select *IPAddress*
+    Write-Host $Interface $IPs.PrivateIPAddress
+}
+
+Get-AzureRmVmPublicIP -ResourceGroupName ResourceGroup2 -VMName WinServer2016 -VMStatus |
+Select -Property VMName,
+                 PublicIP,
+                 @{ label = "PrivateIP"; expression = {$_.NIC.IpConfigurations.PrivateIpAddress} },
+                 @{ label = "VMAgentStatus"; expression = {$_.VM.VMAgent.Statuses[0].DisplayStatus} }
