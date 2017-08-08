@@ -1,6 +1,6 @@
 # Create a resource group
 $ResourceLocation = 'southeastasia'
-$ResourceGroup = New-AzureRmResourceGroup -Name ResourceGroup2 -Location $ResourceLocation -Verbose
+$ResourceGroup = New-AzureRmResourceGroup -Name ResourceGroup1 -Location $ResourceLocation -Verbose
     #Get-AzureRmResourceGroup -Verbose
     #Get-AzureRmLocation | ?{$_.location -like "*India*"} 
     #Get-AzureRmResourceGroup | Remove-AzureRmResourceGroup -Verbose
@@ -42,15 +42,15 @@ $nic = New-AzureRmNetworkInterface -Name NIC -ResourceGroupName $ResourceGroup.R
 
 # Define a credential object
 $Username = Read-Host "Enter Username for the VM"
-$Password = Read-Host "Enter Password for the VM" 
+$Password = Read-Host "Enter Password for the VM" -AsSecureString
 $Password = $Password | ConvertTo-SecureString -AsPlainText -Force
 $Credentials = New-Object pscredential ($Username, $Password)
 
 # Create a virtual machine configuration
-$vmConfig = New-AzureRmVMConfig -VMName WinServer2016 -VMSize Standard_DS2 | `
-    Set-AzureRmVMOperatingSystem -Windows -ComputerName myVM -Credential $Credentials | `
+$vmConfig = New-AzureRmVMConfig -VMName WinServer2012 -VMSize Standard_DS2 | `
+    Set-AzureRmVMOperatingSystem -Windows -ComputerName WinServer2012 -Credential $Credentials | `
     Set-AzureRmVMSourceImage -PublisherName MicrosoftWindowsServer -Offer WindowsServer `
-    -Skus 2016-Datacenter -Version latest -Verbose | Add-AzureRmVMNetworkInterface -Id $nic.Id -Verbose
+    -Skus 2012-Datacenter -Version latest -Verbose | Add-AzureRmVMNetworkInterface -Id $nic.Id -Verbose
 
 #$vmConfig  |select Name , `
 #                   @{n='VMSize';e={$_.HardwareProfile.VMSize}} , `
@@ -60,28 +60,35 @@ $vmConfig = New-AzureRmVMConfig -VMName WinServer2016 -VMSize Standard_DS2 | `
 New-AzureRmVM -ResourceGroupName $ResourceGroup.ResourceGroupName `
               -Location $ResourceLocation -VM $vmConfig -Verbose
 
-
-
+<#
+# Enable WinRM HTTP traffic on client machine
 Set-Item -Path WSMan:\localhost\Client\TrustedHosts –Value “52.187.132.102” -Confirm:$false              
 Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP-PUBLIC' -RemoteAddress 'Any'
+
+# Import the certificate generated from Server
 gci C:\Data\Powershell\Certs\Win2016.cer | Import-Certificate -CertStoreLocation Cert:\LocalMachine\Root -Verbose
 
+# Enter PS session remotely on the Server
+$Creds = Get-Credential -Message 'Enter admin creds'
 $PSSessionOption = New-PSSessionOption -SkipCACheck -SkipCNCheck -SkipRevocationCheck
 Enter-PSSession -ConnectionUri https://52.187.132.102:5986 -Credential $creds -Authentication Negotiate -SessionOption $PSSessionOption
 
 # how to check VM endpoints/ports?
 
 
+#
+#Get-AzureRmPublicIpAddress -Name WinServer2016
+#Get-AzureRmNetworkInterface -ResourceGroupName ResourceGroup2 | `
+#ForEach{ 
+#    $Interface = $_.Name; $IPs = $_ | Get-AzureRmNetworkInterfaceIpConfig | Select *IPAddress*
+#    Write-Host $Interface $IPs.PrivateIPAddress
+#}
+#
+#Get-AzureRmVmPublicIP -ResourceGroupName ResourceGroup2 -VMName WinServer2016 -VMStatus |
+#Select -Property VMName,
+#                 PublicIP,
+#                 @{ label = "PrivateIP"; expression = {$_.NIC.IpConfigurations.PrivateIpAddress} },
+#                 @{ label = "VMAgentStatus"; expression = {$_.VM.VMAgent.Statuses[0].DisplayStatus} }
+#
 
-Get-AzureRmPublicIpAddress -Name WinServer2016
-Get-AzureRmNetworkInterface -ResourceGroupName ResourceGroup2 | `
-ForEach{ 
-    $Interface = $_.Name; $IPs = $_ | Get-AzureRmNetworkInterfaceIpConfig | Select *IPAddress*
-    Write-Host $Interface $IPs.PrivateIPAddress
-}
-
-Get-AzureRmVmPublicIP -ResourceGroupName ResourceGroup2 -VMName WinServer2016 -VMStatus |
-Select -Property VMName,
-                 PublicIP,
-                 @{ label = "PrivateIP"; expression = {$_.NIC.IpConfigurations.PrivateIpAddress} },
-                 @{ label = "VMAgentStatus"; expression = {$_.VM.VMAgent.Statuses[0].DisplayStatus} }
+#>
