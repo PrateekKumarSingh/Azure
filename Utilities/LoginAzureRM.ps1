@@ -1,3 +1,9 @@
+param(
+    [String] $SubscriptionID,
+    [String] $Username,
+    [SecureString] $Password
+)
+
 # Install, import AzureRM module and Login to Azure account
 $Module = Get-Module AzureRM
 If(-not $Module)
@@ -14,5 +20,15 @@ else {
     Write-Host "AzureRM v$($Module.Version) found. Proceeding." -ForegroundColor Green
 }
 
-Write-Host "Enter your Azure portal Credentials" -Foreground Yellow
-$Login = Login-AzureRmAccount
+Write-Host "Attempting login on Azure portal" -Foreground Yellow
+
+$Login = Login-AzureRmAccount -SubscriptionId $SubscriptionID 
+                              -Credential New-Object System.Management.Automation.PSCredential ($Username, $Password)
+
+if($Login){
+    Write-Host "Login successful. Following are account\subscription details -" -ForegroundColor Yellow
+    $Login
+}
+else{
+    Write-Host "Unsuccessful login attempt. Please retry." -ForegroundColor Red
+}
