@@ -6,8 +6,7 @@ param(
 
 # Install, import AzureRM module and Login to Azure account
 $Module = Get-Module AzureRM
-If(-not $Module)
-{
+If(-not $Module){
     Write-Host "Import/Install AzureRM Module." -ForegroundColor Yellow
     Import-Module AzureRM -ErrorAction SilentlyContinue
     If(-not $?)
@@ -22,12 +21,13 @@ else {
 
 Write-Host "Attempting login on Azure portal" -Foreground Yellow
 
-$Login = Login-AzureRmAccount -SubscriptionId $SubscriptionID 
-                              -Credential New-Object System.Management.Automation.PSCredential ($Username, $Password)
+$Login = Import-AzureRmContext -Profile .\profile.json -Verbose
+#Select-AzureRmContext "default" -Verbose
 
 if($Login){
-    Write-Host "Login successful. Following are account\subscription details -" -ForegroundColor Yellow
-    $Login
+    Write-Host "Login successful." -ForegroundColor Yellow
+    $Subscription = Get-AzureRmSubscription | Where-Object state -eq enabled
+    Select-AzureRmSubscription -SubscriptionId $Subscription.Id -Verbose 
 }
 else{
     Write-Host "Unsuccessful login attempt. Please retry." -ForegroundColor Red
